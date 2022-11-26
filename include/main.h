@@ -3,6 +3,8 @@
 #include <Arduino.h>
 #include <SPI.h>
 
+
+#define RAK11310
  
 #define TRIG WB_IO6
 #define ECHO WB_IO4

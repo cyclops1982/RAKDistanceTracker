@@ -27,14 +27,15 @@ struct ConfigurationParameters
     // This is basically the configuration options we use.
     // They can be updated remotely, although this might not make sense.
     // After restart, we get back to the defaults.
-    uint16_t _sleeptime = 240;      // in seconds
+    uint16_t _sleeptime = 30; // in seconds
     int8_t _loraDataRate = DR_5;
     int8_t _loraTXPower = TX_POWER_7;
     bool _loraADREnabled = false;
-    uint8_t _loraDevEUI[8] = {0xAC, 0x1F, 0x09, 0xFF, 0xFE, 0x08, 0xDD, 0xB1}; //SheepTracker 1
- //   uint8_t _loraDevEUI[8] = {0xAC, 0x1F, 0x09, 0xFF, 0xFE, 0x08, 0xF5, 0x2B}; //SheepTracker 2
+    //   uint8_t _loraDevEUI[8] = {0xAC, 0x1F, 0x09, 0xFF, 0xFE, 0x08, 0xDD, 0xB1}; //SheepTracker 1
+    //   uint8_t _loraDevEUI[8] = {0xAC, 0x1F, 0x09, 0xFF, 0xFE, 0x08, 0xF5, 0x2B}; //SheepTracker 2
+    uint8_t _loraDevEUI[8] = {0xAC, 0x1F, 0x09, 0xFF, 0xFE, 0x06, 0xBE, 0x44}; // Distance thing (RP2040)
     uint8_t _loraNodeAppEUI[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-    uint8_t _loraNodeAppKey[16] = {0x66, 0x7b, 0x90, 0x71, 0xa1, 0x72, 0x18, 0xd4, 0xcd, 0xb2, 0x13, 0x04, 0x3f, 0xb2, 0x6b, 0x7c};
+    uint8_t _loraNodeAppKey[16] = {0xD1, 0xAA, 0xDB, 0x5B, 0x6D, 0xA2, 0x9D, 0x1E, 0x1C, 0x84, 0x6B, 0xBE, 0xEC, 0x25, 0x21, 0x42};
     bool _loraRequireConfirmation = true;
 
     static void SetUint32(const ConfigOption *option, uint8_t *arr);
@@ -90,7 +91,6 @@ void ConfigurationParameters::SetUint8(const ConfigOption *option, uint8_t *arr)
     uint8_t *ptr = (uint8_t *)option->value;
     *ptr = val;
     SERIAL_LOG("Setting '%s' change to %u", option->name, *ptr);
-
 }
 
 void ConfigurationParameters::SetInt8(const ConfigOption *option, uint8_t *arr)
@@ -100,7 +100,6 @@ void ConfigurationParameters::SetInt8(const ConfigOption *option, uint8_t *arr)
     int8_t *ptr = (int8_t *)option->value;
     *ptr = val;
     SERIAL_LOG("Setting '%s' change to %d", option->name, *ptr);
-
 }
 
 void ConfigurationParameters::SetBool(const ConfigOption *option, uint8_t *arr)
@@ -113,7 +112,6 @@ void ConfigurationParameters::SetBool(const ConfigOption *option, uint8_t *arr)
         *ptr = true;
     }
     SERIAL_LOG("Setting '%s' change to %d", option->name, *ptr);
-
 }
 
 void ConfigurationParameters::SetConfig(uint8_t *arr, uint8_t length)

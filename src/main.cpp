@@ -1,4 +1,9 @@
 #include <Arduino.h>
+#include <stdio.h>
+#include <mbed.h>
+#include <rtos.h>
+#include <Wire.h>
+#include <vl53l0x_class.h> 
 #include "lorahelper.h"
 #include "ledhelper.h"
 #include "serialhelper.h"
@@ -6,20 +11,22 @@
 #include "batteryhelper.h"
 #include "config.h"
 
-#include <stdio.h>
-
-#include "mbed.h"
-#include "rtos.h"
-#include "Wire.h"
-
-#include <vl53l0x_class.h> // Click to install library: http://librarymanager/All#stm32duino_vl53l0x
 VL53L0X sensor_vl53l0x(&Wire, WB_IO2);
-
 uint16_t g_msgcount = 0;
+#define WAIT_TIME 60000
+
 
 EventType g_EventType = EventType::None;
 uint8_t g_rcvdLoRaData[LORAWAN_BUFFER_SIZE];
 uint8_t g_rcvdDataLen = 0;
+
+mbed::Ticker appTimer;
+
+void timerInterrupt()
+{
+  appTimer.attach(timerInterrupt, (std::chrono::microseconds)(g_configParams.GetSleepTimeInSeconds() * 1000 * 1000));
+  g_EventType = EventType::Timer;
+}
 
 void setup()
 {
@@ -59,19 +66,20 @@ void setup()
   Wire.begin();
 
   // Lora stuff
-  // LoraHelper::InitAndJoin(g_configParams.GetLoraDataRate(), g_configParams.GetLoraTXPower(), g_configParams.GetLoraADREnabled(),
-  //                        g_configParams.GetLoraDevEUI(), g_configParams.GetLoraNodeAppEUI(), g_configParams.GetLoraAppKey());
+  LoraHelper::InitAndJoin(g_configParams.GetLoraDataRate(), g_configParams.GetLoraTXPower(), g_configParams.GetLoraADREnabled(),
+                          g_configParams.GetLoraDevEUI(), g_configParams.GetLoraNodeAppEUI(), g_configParams.GetLoraAppKey());
+
+  // tof Sensor
   sensor_vl53l0x.begin();
-
-  // Switch off VL53L0X component.
   sensor_vl53l0x.VL53L0X_Off();
-
-  // Initialize VL53L0X component.
   int status = sensor_vl53l0x.InitSensor(0x52);
   if (status)
   {
     SERIAL_LOG("Failed to init vl53l0x: %d", status);
   }
+
+  SERIAL_LOG("Starting timerInterrupt to get started.")
+  timerInterrupt();
 }
 
 void handleReceivedMessage()
@@ -89,11 +97,6 @@ void handleReceivedMessage()
       {
         switch (g_rcvdLoRaData[i])
         {
-        case ConfigType::SleepTime:
-          SERIAL_LOG("Resetting sleeptimer to %u", g_configParams.GetSleepTimeInSeconds());
-          // TODO: update this
-
-          break;
         case ConfigType::LORA_ADREnabled:
         case ConfigType::LORA_DataRate:
           SERIAL_LOG("Setting Lora DataRate to %u and ARD to %d", g_configParams.GetLoraDataRate(), g_configParams.GetLoraADREnabled());
@@ -112,7 +115,7 @@ void handleReceivedMessage()
 }
 
 // read RAK12014
-uint32_t readTOF()
+uint16_t readTOF()
 {
   uint32_t distance;
   int status = sensor_vl53l0x.GetDistance(&distance);
@@ -120,86 +123,92 @@ uint32_t readTOF()
   if (status != VL53L0X_ERROR_NONE)
   {
     SERIAL_LOG("Failed to get distance: %d", status);
-    return -1;
+    return 0;
   }
-  return distance;
+  return (uint16_t)distance;
 }
 
 // read RAK12007
-long int duration_time()
+uint16_t duration_time()
 {
-  long int respondTime;
   pinMode(TRIG, OUTPUT);
   digitalWrite(TRIG, HIGH);
   delayMicroseconds(12); // pull high time need over 10us
   digitalWrite(TRIG, LOW);
   pinMode(ECHO, INPUT);
-  respondTime = pulseIn(ECHO, HIGH); // microseconds
+  unsigned long respondTime = pulseIn(ECHO, HIGH); // microseconds
+  //  TODO: there was a delay(33) here, not sure why?!
   delay(33);
-
-  Serial.printf("respond time is %d\r\n", respondTime);
-
-  // if((respondTime>0)&&(respondTime < TIME_OUT))  //ECHO pin max timeout is 33000us according it's datasheet
-  //{
-  return respondTime;
-  //}
-  // else
-  //{
-  //  return -1;
-  //}
+  return (uint16_t)(respondTime * (343 / 1000 / 2)); // speed of sound at 20C / 2 (because it's back, bounce and return)
 }
 
 void doUpdateMessage()
 {
+
   SERIAL_LOG("Doing updateMessage");
 
   uint16_t vbat_mv = BatteryHelper::readVBAT();
-  long ultrasoundduration = duration_time();
-  uint32_t tofDistance = readTOF();
+  uint16_t ultrasoundDistance = duration_time();
+  uint16_t tofDistance = readTOF();
 
-  SERIAL_LOG("Bat value:           %d", vbat_mv);
-  SERIAL_LOG("Ultrasound duration: %d", ultrasoundduration);
-  SERIAL_LOG("Ultrasound distance: %f", ultrasoundduration * (346.6/1000/2));
+  SERIAL_LOG("Bat value:           %lu", vbat_mv);
+  SERIAL_LOG("Ultrasound distance: %lu", ultrasoundDistance);
   SERIAL_LOG("TOF Distance:        %lu", tofDistance)
   SERIAL_LOG("=============================");
 
   // Create the lora message
-  /*  memset(g_SendLoraData.buffer, 0, LORAWAN_BUFFER_SIZE);
-    int size = 0;
-    g_SendLoraData.port = 2;
-    g_SendLoraData.buffer[size++] = 0x03;
-    g_SendLoraData.buffer[size++] = 0x02;
+  memset(g_SendLoraData.buffer, 0, LORAWAN_BUFFER_SIZE);
+  int size = 0;
+  g_SendLoraData.port = 2;
+  g_SendLoraData.buffer[size++] = 0x03;
+  g_SendLoraData.buffer[size++] = 0x01;
 
-    g_SendLoraData.buffer[size++] = vbat_mv >> 8;
-    g_SendLoraData.buffer[size++] = vbat_mv;
+  g_SendLoraData.buffer[size++] = vbat_mv >> 8;
+  g_SendLoraData.buffer[size++] = vbat_mv;
 
-    g_SendLoraData.buffer[size++] = g_msgcount >> 8;
-    g_SendLoraData.buffer[size++] = g_msgcount;
+  g_SendLoraData.buffer[size++] = g_msgcount >> 8;
+  g_SendLoraData.buffer[size++] = g_msgcount;
 
-    // TODO
+  g_SendLoraData.buffer[size++] = tofDistance >> 8;
+  g_SendLoraData.buffer[size++] = tofDistance;
 
-    g_SendLoraData.buffsize = size;
+  g_SendLoraData.buffer[size++] = ultrasoundDistance >> 8;
+  g_SendLoraData.buffer[size++] = ultrasoundDistance;
 
-    lmh_error_status loraSendState = LMH_ERROR;
-    loraSendState = lmh_send(&g_SendLoraData, (lmh_confirm)g_configParams.GetLoraRequireConfirmation());
-  #if !MAX_SAVE
-    if (loraSendState == LMH_SUCCESS)
-    {
-      Serial.println("lmh_send ok");
-    }
-    else
-    {
-      Serial.printf("lmh_send failed: %d\n", loraSendState);
-    }
-  #endif
-  */
+  g_SendLoraData.buffsize = size;
+
+  lmh_error_status loraSendState = LMH_ERROR;
+  loraSendState = lmh_send(&g_SendLoraData, (lmh_confirm)g_configParams.GetLoraRequireConfirmation());
+#if !MAX_SAVE
+  if (loraSendState == LMH_SUCCESS)
+  {
+    Serial.println("lmh_send ok");
+  }
+  else
+  {
+    Serial.printf("lmh_send failed: %d\n", loraSendState);
+  }
+#endif
   g_msgcount++;
 }
 
 void loop()
 {
+  switch (g_EventType) {
+    case EventType::Timer:
+      doUpdateMessage();
+      g_EventType = EventType::None;
+    break;
+    case EventType::LoraDataReceived:
+      handleReceivedMessage();
+      g_EventType = EventType::None;
+    break;
+    case EventType::None:
+    default:
+      SERIAL_LOG("Nothing to do");
+      delay(10000);
+    break;
+  }
+  
 
-  doUpdateMessage();
-
-  delay(1500);
 }

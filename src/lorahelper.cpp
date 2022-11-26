@@ -85,9 +85,9 @@ void LoraHelper::lorawan_rx_handler(lmh_app_data_t *app_data)
         // Copy the data into loop data buffer
         memcpy(g_rcvdLoRaData, app_data->buffer, app_data->buffsize);
         g_rcvdDataLen = app_data->buffsize;
-
         g_EventType = EventType::LoraDataReceived;
-//TODO: Kick off the timer/wake up?
+        SERIAL_LOG("Setting g_EventType to LoraDataReceived");
+
         break;
     default:
         SERIAL_LOG("Received lora data on unsupported PORT");
@@ -123,6 +123,7 @@ void LoraHelper::InitAndJoin(int8_t datarate, int8_t TXPower, bool adrEnabled, u
 #if defined(RAK4630)
     lora_rak4630_init();
 #elif defined(RAK11310)
+    SERIAL_LOG("Initting the RAK11300");
     lora_rak11300_init();
 #endif
     lmh_setDevEui(nodeDeviceEUI);
