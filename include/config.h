@@ -27,7 +27,7 @@ struct ConfigurationParameters
     // This is basically the configuration options we use.
     // They can be updated remotely, although this might not make sense.
     // After restart, we get back to the defaults.
-    uint16_t _sleeptime = 30; // in seconds
+    uint16_t _sleeptime = 300; // in seconds
     int8_t _loraDataRate = DR_5;
     int8_t _loraTXPower = TX_POWER_7;
     bool _loraADREnabled = false;
