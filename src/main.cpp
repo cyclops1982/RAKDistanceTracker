@@ -175,6 +175,17 @@ void doUpdateMessage()
 
   g_SendLoraData.buffsize = size;
 
+
+#if !MAX_SAVE
+  SERIAL_LOG("Sending LORA data:");
+    for (uint8_t i = 0; i < g_SendLoraData.buffsize; i++)
+  {
+    char hexstr[3];
+    sprintf(hexstr, "%02x", g_rcvdLoRaData[i]);
+    SERIAL_LOG("DATA %d: %s", i, hexstr)
+  }
+#endif
+
   lmh_error_status loraSendState = LMH_ERROR;
   loraSendState = lmh_send(&g_SendLoraData, (lmh_confirm)g_configParams.GetLoraRequireConfirmation());
 #if !MAX_SAVE
