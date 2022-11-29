@@ -181,7 +181,7 @@ void doUpdateMessage()
     for (uint8_t i = 0; i < g_SendLoraData.buffsize; i++)
   {
     char hexstr[3];
-    sprintf(hexstr, "%02x", g_rcvdLoRaData[i]);
+    sprintf(hexstr, "%02x", g_SendLoraData.buffer[i]);
     SERIAL_LOG("DATA %d: %s", i, hexstr)
   }
 #endif
