@@ -13,9 +13,6 @@
 
 VL53L0X sensor_vl53l0x(&Wire, WB_IO2);
 uint16_t g_msgcount = 0;
-#define WAIT_TIME 60000
-
-
 EventType g_EventType = EventType::None;
 uint8_t g_rcvdLoRaData[LORAWAN_BUFFER_SIZE];
 uint8_t g_rcvdDataLen = 0;
@@ -58,6 +55,7 @@ void setup()
   digitalWrite(WB_IO2, HIGH);
   delay(100);
 
+  // setup pins for the ulrasound
   pinMode(ECHO, INPUT);  // Echo Pin of Ultrasonic Sensor is an Input
   pinMode(TRIG, OUTPUT); // Trigger Pin of Ultrasonic Sensor is an Output
   digitalWrite(TRIG, LOW);
@@ -129,17 +127,16 @@ uint16_t readTOF()
 }
 
 // read RAK12007
-uint16_t duration_time()
+long int readUltrasound()
 {
   pinMode(TRIG, OUTPUT);
   digitalWrite(TRIG, HIGH);
   delayMicroseconds(12); // pull high time need over 10us
   digitalWrite(TRIG, LOW);
   pinMode(ECHO, INPUT);
-  unsigned long respondTime = pulseIn(ECHO, HIGH); // microseconds
-  //  TODO: there was a delay(33) here, not sure why?!
+  long int respondTime = pulseIn(ECHO, HIGH); // microseconds
   delay(33);
-  return (uint16_t)(respondTime * (343 / 1000 / 2)); // speed of sound at 20C / 2 (because it's back, bounce and return)
+  return lround(respondTime * (343.0/1000/2));
 }
 
 void doUpdateMessage()
@@ -148,12 +145,13 @@ void doUpdateMessage()
   SERIAL_LOG("Doing updateMessage");
 
   uint16_t vbat_mv = BatteryHelper::readVBAT();
-  uint16_t ultrasoundDistance = duration_time();
+  long int ultrasoundDistance = readUltrasound();
   uint16_t tofDistance = readTOF();
 
   SERIAL_LOG("Bat value:           %lu", vbat_mv);
-  SERIAL_LOG("Ultrasound distance: %lu", ultrasoundDistance);
+  SERIAL_LOG("Message Count:       %lu", g_msgcount);
   SERIAL_LOG("TOF Distance:        %lu", tofDistance)
+  SERIAL_LOG("Ultrasound distance: %lu", ultrasoundDistance);
   SERIAL_LOG("=============================");
 
   // Create the lora message
