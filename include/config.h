@@ -27,9 +27,9 @@ struct ConfigurationParameters
     // This is basically the configuration options we use.
     // They can be updated remotely, although this might not make sense.
     // After restart, we get back to the defaults.
-    uint16_t _sleeptime = 300; // in seconds
+    uint16_t _sleeptime = 60; // in seconds
     int8_t _loraDataRate = DR_5;
-    int8_t _loraTXPower = TX_POWER_7;
+    int8_t _loraTXPower = TX_POWER_0;
     bool _loraADREnabled = true;
     uint8_t _loraDevEUI[8] = {0xAC, 0x1F, 0x09, 0xFF, 0xFE, 0x06, 0xBE, 0x44}; // Distance thing (RP2040)
     uint8_t _loraNodeAppEUI[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
