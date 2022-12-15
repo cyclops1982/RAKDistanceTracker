@@ -80,6 +80,39 @@ void setup()
   timerInterrupt();
 }
 
+
+bool SendData()
+{
+  if (!lorawan_joined)
+  {
+    SERIAL_LOG("SendData called, but we're not joined to the network. Joining now...");
+    // Lora stuff
+    LoraHelper::InitAndJoin(g_configParams.GetLoraDataRate(), g_configParams.GetLoraTXPower(), g_configParams.GetLoraADREnabled(),
+                            g_configParams.GetLoraDevEUI(), g_configParams.GetLoraNodeAppEUI(), g_configParams.GetLoraAppKey());
+  }
+  if (lorawan_joined)
+  {
+    lmh_error_status loraSendState = lmh_send(&g_SendLoraData, (lmh_confirm)g_configParams.GetLoraRequireConfirmation());
+
+    if (loraSendState == LMH_SUCCESS)
+    {
+      SERIAL_LOG("LoRaSend ok");
+      return true;
+    }
+    else
+    {
+      SERIAL_LOG("LorRaSend failed: %d\n", loraSendState);
+      return false;
+    }
+  }
+  else
+  {
+    SERIAL_LOG("SKIPPING SEND - We are not joined to a network");
+  }
+  return false;
+}
+
+
 void handleReceivedMessage()
 {
 
@@ -185,19 +218,9 @@ void doUpdateMessage()
     SERIAL_LOG("DATA %d: %s", i, hexstr)
   }
 #endif
+  SendData();
 
-  lmh_error_status loraSendState = LMH_ERROR;
-  loraSendState = lmh_send(&g_SendLoraData, (lmh_confirm)g_configParams.GetLoraRequireConfirmation());
-#if !MAX_SAVE
-  if (loraSendState == LMH_SUCCESS)
-  {
-    Serial.println("lmh_send ok");
-  }
-  else
-  {
-    Serial.printf("lmh_send failed: %d\n", loraSendState);
-  }
-#endif
+
   g_msgcount++;
 }
 

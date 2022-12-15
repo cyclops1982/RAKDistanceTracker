@@ -1,8 +1,6 @@
 #include "lorahelper.h"
 #include "ledhelper.h"
-#include "batteryhelper.h"
 #include "main.h"
-
 
 lmh_callback_t lora_callbacks = {BatteryHelper::GetLoRaWanBattVal,
                                  BoardGetUniqueId,
@@ -23,6 +21,7 @@ void LoraHelper::lorawan_has_joined_handler(void)
     {
         SERIAL_LOG("Class request status: %d\n", ret);
     }
+    lorawan_joined = true;
 }
 
 void LoraHelper::lorawan_unconf_finished(void)
@@ -40,7 +39,7 @@ void LoraHelper::lorawan_join_failed_handler(void)
     SERIAL_LOG("OTAA join failed!");
     SERIAL_LOG("Check your EUI's and Keys's!");
     SERIAL_LOG("Check if a Gateway is in range!");
-    LedHelper::BlinkHalt();
+    lorawan_joined = false;
 }
 
 void LoraHelper::lorawan_rx_handler(lmh_app_data_t *app_data)
@@ -85,8 +84,15 @@ void LoraHelper::lorawan_rx_handler(lmh_app_data_t *app_data)
         // Copy the data into loop data buffer
         memcpy(g_rcvdLoRaData, app_data->buffer, app_data->buffsize);
         g_rcvdDataLen = app_data->buffsize;
-        g_EventType = EventType::LoraDataReceived;
         SERIAL_LOG("Setting g_EventType to LoraDataReceived");
+        g_EventType = EventType::LoraDataReceived;
+
+#if defined(RAK4630)
+        if (g_taskEvent != NULL)
+        {
+            xSemaphoreGive(g_taskEvent);
+        }
+#endif
 
         break;
     default:
@@ -116,14 +122,13 @@ void LoraHelper::SetTXPower(int8_t TXPower)
     lmh_tx_power_set(TXPower);
 }
 
-void LoraHelper::InitAndJoin(int8_t datarate, int8_t TXPower, bool adrEnabled, uint8_t* nodeDeviceEUI, uint8_t* nodeAppEUI, uint8_t* nodeAppKey)
+void LoraHelper::InitAndJoin(int8_t datarate, int8_t TXPower, bool adrEnabled, uint8_t *nodeDeviceEUI, uint8_t *nodeAppEUI, uint8_t *nodeAppKey)
 {
     SERIAL_LOG("Init and Join LoraWAN");
-    
+    lorawan_joined = false;
 #if defined(RAK4630)
     lora_rak4630_init();
 #elif defined(RAK11310)
-    SERIAL_LOG("Initting the RAK11300");
     lora_rak11300_init();
 #endif
     lmh_setDevEui(nodeDeviceEUI);
@@ -144,6 +149,11 @@ void LoraHelper::InitAndJoin(int8_t datarate, int8_t TXPower, bool adrEnabled, u
 
     while (lmh_join_status_get() != LMH_SET)
     {
-        LedHelper::BlinkDelay(LED_BLUE, 100);
+        LedHelper::BlinkDelay(LED_BLUE, 250);
+        if (lmh_join_status_get() == LMH_FAILED)
+        {
+            SERIAL_LOG("lmh_join_status_get returned LMH_FAILED. Jumping out of 'wait' loop.");
+            return;
+        }
     }
 }
