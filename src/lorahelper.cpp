@@ -21,7 +21,7 @@ void LoraHelper::lorawan_has_joined_handler(void)
     {
         SERIAL_LOG("Class request status: %d\n", ret);
     }
-    lorawan_joined = true;
+    g_lorawan_joined = true;
 }
 
 void LoraHelper::lorawan_unconf_finished(void)
@@ -39,7 +39,7 @@ void LoraHelper::lorawan_join_failed_handler(void)
     SERIAL_LOG("OTAA join failed!");
     SERIAL_LOG("Check your EUI's and Keys's!");
     SERIAL_LOG("Check if a Gateway is in range!");
-    lorawan_joined = false;
+    g_lorawan_joined = false;
 }
 
 void LoraHelper::lorawan_rx_handler(lmh_app_data_t *app_data)
@@ -125,7 +125,7 @@ void LoraHelper::SetTXPower(int8_t TXPower)
 void LoraHelper::InitAndJoin(int8_t datarate, int8_t TXPower, bool adrEnabled, uint8_t *nodeDeviceEUI, uint8_t *nodeAppEUI, uint8_t *nodeAppKey)
 {
     SERIAL_LOG("Init and Join LoraWAN");
-    lorawan_joined = false;
+    g_lorawan_joined = false;
 #if defined(RAK4630)
     lora_rak4630_init();
 #elif defined(RAK11310)

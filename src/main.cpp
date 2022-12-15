@@ -3,7 +3,7 @@
 #include <mbed.h>
 #include <rtos.h>
 #include <Wire.h>
-#include <vl53l0x_class.h> 
+#include <vl53l0x_class.h>
 #include "lorahelper.h"
 #include "ledhelper.h"
 #include "serialhelper.h"
@@ -16,6 +16,7 @@ uint16_t g_msgcount = 0;
 EventType g_EventType = EventType::None;
 uint8_t g_rcvdLoRaData[LORAWAN_BUFFER_SIZE];
 uint8_t g_rcvdDataLen = 0;
+bool g_lorawan_joined = false;
 
 mbed::Ticker appTimer;
 
@@ -80,17 +81,16 @@ void setup()
   timerInterrupt();
 }
 
-
 bool SendData()
 {
-  if (!lorawan_joined)
+  if (!g_lorawan_joined)
   {
     SERIAL_LOG("SendData called, but we're not joined to the network. Joining now...");
     // Lora stuff
     LoraHelper::InitAndJoin(g_configParams.GetLoraDataRate(), g_configParams.GetLoraTXPower(), g_configParams.GetLoraADREnabled(),
                             g_configParams.GetLoraDevEUI(), g_configParams.GetLoraNodeAppEUI(), g_configParams.GetLoraAppKey());
   }
-  if (lorawan_joined)
+  if (g_lorawan_joined)
   {
     lmh_error_status loraSendState = lmh_send(&g_SendLoraData, (lmh_confirm)g_configParams.GetLoraRequireConfirmation());
 
@@ -111,7 +111,6 @@ bool SendData()
   }
   return false;
 }
-
 
 void handleReceivedMessage()
 {
@@ -169,7 +168,7 @@ long int readUltrasound()
   pinMode(ECHO, INPUT);
   long int respondTime = pulseIn(ECHO, HIGH); // microseconds
   delay(33);
-  return lround(respondTime * (343.0/1000/2));
+  return lround(respondTime * (343.0 / 1000 / 2));
 }
 
 void doUpdateMessage()
@@ -208,10 +207,9 @@ void doUpdateMessage()
 
   g_SendLoraData.buffsize = size;
 
-
 #if !MAX_SAVE
   SERIAL_LOG("Sending LORA data:");
-    for (uint8_t i = 0; i < g_SendLoraData.buffsize; i++)
+  for (uint8_t i = 0; i < g_SendLoraData.buffsize; i++)
   {
     char hexstr[3];
     sprintf(hexstr, "%02x", g_SendLoraData.buffer[i]);
@@ -220,27 +218,25 @@ void doUpdateMessage()
 #endif
   SendData();
 
-
   g_msgcount++;
 }
 
 void loop()
 {
-  switch (g_EventType) {
-    case EventType::Timer:
-      doUpdateMessage();
-      g_EventType = EventType::None;
+  switch (g_EventType)
+  {
+  case EventType::Timer:
+    doUpdateMessage();
+    g_EventType = EventType::None;
     break;
-    case EventType::LoraDataReceived:
-      handleReceivedMessage();
-      g_EventType = EventType::None;
+  case EventType::LoraDataReceived:
+    handleReceivedMessage();
+    g_EventType = EventType::None;
     break;
-    case EventType::None:
-    default:
-      SERIAL_LOG("Nothing to do");
-      delay(10000);
+  case EventType::None:
+  default:
+    SERIAL_LOG("Nothing to do");
+    delay(10000);
     break;
   }
-  
-
 }
